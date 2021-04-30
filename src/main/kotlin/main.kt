@@ -1,5 +1,4 @@
-import Log.INFO
-import Log.TRACE
+import Log.*
 
 /**
  * 14. Készítsen programot, amely elvégzi egy szöveg Lempel-Ziv kódolását!
@@ -18,24 +17,51 @@ import Log.TRACE
 const val inputString = "aacaacabcabaaac"
 
 const val LOOKUP_WINDOW_SIZE = 6
-val rootLogLevel = TRACE
+val lookUpWindow = SlidingWindow(6)
+val rootLogLevel = INFO
 
+sealed class PrefixSearchResult
+data class PrefixFound(val index: Int, val prefix: String) : PrefixSearchResult()
+object None : PrefixSearchResult()
 
-class SlidingWindow(private val maxSize: Int, private val window: ArrayDeque<Char> = ArrayDeque(maxSize)) {
-    fun pop(amount: Int = 1) : SlidingWindow {
+class SlidingWindow(val maxSize: Int, private val window: ArrayDeque<Char> = ArrayDeque(maxSize)) {
+    fun find(sequenceToLookUp: String): PrefixSearchResult {
+        val windowString = windowAsString()
+        return when (windowString.contains(sequenceToLookUp)) {
+            false -> None
+            true -> {
+                val index = windowString.indexOf(sequenceToLookUp)
+                PrefixFound(index, sequenceToLookUp)
+            }
+        }
+    }
+
+    fun popIfFull(amount: Int = 1): SlidingWindow {
+        if(window.size < maxSize) {
+            return this
+        }
         repeat(amount) {
             window.removeFirstOrNull().let {
-                if(it == null) {
-                    return@pop this
+                if (it == null) {
+                    return@popIfFull this
                 }
             }
         }
         return this
     }
 
-    fun push(chars: CharSequence) : SlidingWindow {
+    fun push(chars: CharSequence): SlidingWindow {
+        check(chars.length <= maxSize) { "The size of [ $chars ] exceeds max window size [ $maxSize ]!"}
         window.addAll(chars.toList())
         return this
+    }
+    
+    fun size () : Int {
+        return window.size
+    }
+
+    private fun windowAsString(): String {
+        return buildString { window.forEach { append(it) } }
     }
 
     override fun toString(): String {
@@ -51,51 +77,63 @@ enum class Log(val level: Int) {
 
 fun main(args: Array<String>) {
     "Starting program".print(INFO)
-    val lookUpWindow = SlidingWindow(LOOKUP_WINDOW_SIZE)
-    lookUpWindow.push("123").print()
-    lookUpWindow.push("45").print()
-    lookUpWindow.pop(2).print()
-    lookUpWindow.pop(10).print()
-    lookUpWindow.push("6789").print()
-    lookUpWindow.pop(4).print()
-    while (lookUpWindow.toString() != "[]") {
-        lookUpWindow.pop().print()
-    }
-    return
+    var tempString = inputString.print(INFO) { "input string: $it" }
+        .onEachIndexed { index, _ -> "at index $index is ${inputString[index]}".print(TRACE) }
 
-//    var tempString = inputString.print(INFO) { "input string: $it" }
-//        .onEachIndexed { index, _ -> "at index $index is ${inputString[index]}".print(TRACE) }
+    val increments = compress(tempString, lookUpWindow)
 
-    var cursor: Int = 0
-    while (cursor < inputString.length) {
-//        val result = tempString.findLongestExistingPrefix { lookUpWindow.contains(it) }
-
-//        val increment = when (result) {
-//            is FullPrefix -> {
-//                cursor += 1
-//                lookUpWindow.add(result.prefix)
-////                tempString = tempString.substring(1) TODO: wtf to do here? xd
-//                Increment(0, 0, ' ')
-//            } // TODO: this is still BS!
-//            is SingleCharPrefix -> {
-//                cursor += 1
-//                lookUpWindow.add(result.char.toString())
-//                tempString = tempString.substring(1)
-//                Increment(0, 0, result.char)
-//            }
-//            is SubPrefix -> {
-//                cursor += result.prefix.length
-//                lookUpWindow.add(result.prefix)
-//                tempString = tempString.substring(result.prefix.length)
-//                Increment(result.prefix.length, result.prefix.length, result.nextChar)
-//            }
-//        }
-//        output(increment).print(INFO) { "\n" }
-//        tempString.print(TRACE) { "remaining input: $it" }
-////        TODO :Move lookup window
-    }
-//    lookUpWindow.print(DEBUG) { "dictionary:" }.forEach { it.print(DEBUG) }
+    lookUpWindow.print(DEBUG) { "dictionary: $it" }
+    increments.print()
     "Ending program".print(INFO)
+}
+
+fun compress(inputString: String, lookUpWindow: SlidingWindow): List<Increment> {
+    var tempString = inputString
+    val increments = mutableListOf<Increment>()
+    while (tempString.isNotBlank()) {
+        val currentIncrement = if (tempString.length == 1) {
+            Increment(0, 0, tempString[0])
+        } else {
+            when (val result = tempString.findLongestExistingPrefixOn { lookUpWindow.find(it) }) {
+                None -> {
+                    Increment(0, 0, tempString.first())
+                }
+                is PrefixFound -> {
+                    val length = result.prefix.length
+                    val offset = lookUpWindow.size() - result.index
+                    Increment(offset, length, tempString.getOrNull(length) ?: tempString.last())
+                }
+            }
+        }
+
+        output(currentIncrement).print(DEBUG)
+        increments.add(currentIncrement)
+
+        lookUpWindow.toString().print { "lookUpWindow: ${it}" }
+        lookUpWindow.popIfFull(currentIncrement.length + 1)
+        lookUpWindow.toString().print { "lookUpWindow: $it" }
+        currentIncrement.print{"currentIncrement.length $it"}
+        tempString.print{"tempString $it"}
+
+        val (front, back) = tempString.splitAtIndex(currentIncrement.length + 1)
+        front.print { "front $it"}
+        back.print { "back $it"}
+        lookUpWindow.push(front)
+        lookUpWindow.toString().print { "lookUpWindow: $it" }
+        tempString = back
+        currentIncrement.print{"currentIncrement $it"}
+        tempString.print{ "tempString $it"}
+        tempString.print(TRACE) { "remaining input: $it" }
+    }
+    return increments
+}
+
+fun String.splitAtIndex(index: Int) = when {
+    index < 0 -> 0
+    index > length -> length
+    else -> index
+}.let {
+    take(it) to substring(it)
 }
 
 fun String.nextCharAfter(lastIndex: Int): Char {
@@ -105,7 +143,9 @@ fun String.nextCharAfter(lastIndex: Int): Char {
     return this[lastIndex + 1]
 }
 
-fun output(increment: Increment) = println(increment)
+fun output(increment: Increment) {
+//    println(increment)
+}
 
 data class Increment(val offset: Int, val length: Int, val nextCharacter: Char) {
     override fun toString(): String {
@@ -137,18 +177,24 @@ data class Increment(val offset: Int, val length: Int, val nextCharacter: Char) 
 //    return this
 //}
 
-sealed class Prefix
-class FullPrefix(val prefix: String) : Prefix()
-class SubPrefix(val prefix: String, val nextChar: Char) : Prefix()
-class SingleCharPrefix(val char: Char) : Prefix()
 
-//fun String.findLongestExistingPrefix(doesExist: (String) -> Boolean): Prefix {
-//    var startIndex = 0
-//
-//
-//
-//
-//}
+fun String.findLongestExistingPrefixOn(lookUp: (String) -> PrefixSearchResult): PrefixSearchResult {
+    val prefix = StringBuffer()
+    val maxLookUpLength = lookUpWindow.maxSize.coerceAtMost(this.length).print { "maxLookUpLength: [ $it ]"}
+
+    var lastFoundPrefix : PrefixSearchResult = None
+    for (index in 0 until maxLookUpLength) {
+        val nextChar = this[index]
+        prefix.append(nextChar)
+        val nextResult = lookUp(prefix.toString()).also {  "nextResult: [ ${if(it is PrefixFound) it.prefix else "None"} ]".print() }
+        when(nextResult) {
+            None -> return lastFoundPrefix.also { "no prefix exists for: [ $prefix ] returning: [ ${if(it is PrefixFound) it.prefix else "None"} ]\n".print()}
+            is PrefixFound -> lastFoundPrefix = nextResult
+        }
+        continue
+    }
+    return lastFoundPrefix.also { "returning last found prefix: [ ${if(it is PrefixFound) it.prefix else "None"} ]\n".print()}
+}
 
 
 //fun String.findLongestExistingPrefix(doesExist: (String) -> Boolean): Prefix {
@@ -183,25 +229,42 @@ class SingleCharPrefix(val char: Char) : Prefix()
 //    return FullPrefix(this)
 //}
 
+//
+//// TODO("inline")
+//fun String.prefixMatches(predicate: (String) -> Boolean): String {
+//    "\nfinding prefix for [ $this ]".print(TRACE)
+//    val buffer = StringBuilder()
+//    for (index in 0 until length) {
+//        "appending [ ${this[index]} ] to buffer".print(TRACE)
+//        buffer.append(this[index])
+//
+//        val currentPrefix = buffer.toString()
+//        "looking [ $currentPrefix ] up in dictionary".print(TRACE)
+//        if (predicate.invoke(currentPrefix)) {
+//            "[ $currentPrefix ] is a new prefix \n".print(TRACE)
+//            return substring(0, index)
+//        }
+//        "[ $currentPrefix ] is not a prefix".print(TRACE)
+//    }
+//    "no prefix found, returning $this".print(TRACE)
+//    return this
+//}
 
-// TODO("inline")
-fun String.prefixMatches(predicate: (String) -> Boolean): String {
-    "\nfinding prefix for [ $this ]".print(TRACE)
-    val buffer = StringBuilder()
-    for (index in 0 until length) {
-        "appending [ ${this[index]} ] to buffer".print(TRACE)
-        buffer.append(this[index])
+fun decompress(increments : List<Increment>) : String {
+    val buffer = StringBuffer()
 
-        val currentPrefix = buffer.toString()
-        "looking [ $currentPrefix ] up in dictionary".print(TRACE)
-        if (predicate.invoke(currentPrefix)) {
-            "[ $currentPrefix ] is a new prefix \n".print(TRACE)
-            return substring(0, index)
+    increments.forEach increment@{
+        if (it.offset == 0) {
+            buffer.append(it.nextCharacter)
+            return@increment
         }
-        "[ $currentPrefix ] is not a prefix".print(TRACE)
+        buffer.apply {
+            val startIndex = this.length - it.offset
+            append(substring(startIndex, startIndex + it.length))
+            append(it.nextCharacter)
+        }
     }
-    "no prefix found, returning $this".print(TRACE)
-    return this
+    return buffer.toString()
 }
 
 fun <T> T.print(logLevel: Log = TRACE, messageCreator: (String) -> String): T {
