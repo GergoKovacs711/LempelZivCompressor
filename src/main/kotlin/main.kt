@@ -1,5 +1,5 @@
-import Log.*
-import java.lang.StringBuilder
+import Log.INFO
+import Log.TRACE
 
 /**
  * 14. Készítsen programot, amely elvégzi egy szöveg Lempel-Ziv kódolását!
@@ -17,8 +17,31 @@ import java.lang.StringBuilder
 //const val inputString = "ababcbababaa"
 const val inputString = "aacaacabcabaaac"
 
-val window = mutableMapOf<String, Int>()
-val rootLogLevel = DEBUG
+const val LOOKUP_WINDOW_SIZE = 6
+val rootLogLevel = TRACE
+
+
+class SlidingWindow(private val maxSize: Int, private val window: ArrayDeque<Char> = ArrayDeque(maxSize)) {
+    fun pop(amount: Int = 1) : SlidingWindow {
+        repeat(amount) {
+            window.removeFirstOrNull().let {
+                if(it == null) {
+                    return@pop this
+                }
+            }
+        }
+        return this
+    }
+
+    fun push(chars: CharSequence) : SlidingWindow {
+        window.addAll(chars.toList())
+        return this
+    }
+
+    override fun toString(): String {
+        return window.toString()
+    }
+}
 
 enum class Log(val level: Int) {
     TRACE(1),
@@ -28,35 +51,50 @@ enum class Log(val level: Int) {
 
 fun main(args: Array<String>) {
     "Starting program".print(INFO)
-    var tempString = inputString.onEachIndexed { index, _ -> "at index $index is ${inputString[index]}".print(TRACE)}
+    val lookUpWindow = SlidingWindow(LOOKUP_WINDOW_SIZE)
+    lookUpWindow.push("123").print()
+    lookUpWindow.push("45").print()
+    lookUpWindow.pop(2).print()
+    lookUpWindow.pop(10).print()
+    lookUpWindow.push("6789").print()
+    lookUpWindow.pop(4).print()
+    while (lookUpWindow.toString() != "[]") {
+        lookUpWindow.pop().print()
+    }
+    return
+
+//    var tempString = inputString.print(INFO) { "input string: $it" }
+//        .onEachIndexed { index, _ -> "at index $index is ${inputString[index]}".print(TRACE) }
+
     var cursor: Int = 0
     while (cursor < inputString.length) {
-        val prefix = registerPrefixFrom(cursor, tempString).also { "prefix [ $it ]".print(DEBUG) }
+//        val result = tempString.findLongestExistingPrefix { lookUpWindow.contains(it) }
 
-        val increment = when (prefix.isNotEmpty()) {
-            true -> {
-                val increment = Increment(cursor , prefix.length, tempString.nextCharAfter(prefix.length))
-                cursor += prefix.length
-                increment
-            }
-            false -> {
-                // TODO: is this case even possible?
+//        val increment = when (result) {
+//            is FullPrefix -> {
 //                cursor += 1
-//                if (tempString.isEmpty())
-//                    continue
-//                Increment(0, 0, tempString[0])
-                "PREFIX WAS EMPTY!!".print(INFO)
-                Increment(-1, -1, '-')
-            }
-        }
-        output(increment)
-
-        tempString = tempString.removeRange(0 until increment.length).also { it.print(TRACE) }
-
-        // TODO :Move lookup window
+//                lookUpWindow.add(result.prefix)
+////                tempString = tempString.substring(1) TODO: wtf to do here? xd
+//                Increment(0, 0, ' ')
+//            } // TODO: this is still BS!
+//            is SingleCharPrefix -> {
+//                cursor += 1
+//                lookUpWindow.add(result.char.toString())
+//                tempString = tempString.substring(1)
+//                Increment(0, 0, result.char)
+//            }
+//            is SubPrefix -> {
+//                cursor += result.prefix.length
+//                lookUpWindow.add(result.prefix)
+//                tempString = tempString.substring(result.prefix.length)
+//                Increment(result.prefix.length, result.prefix.length, result.nextChar)
+//            }
+//        }
+//        output(increment).print(INFO) { "\n" }
+//        tempString.print(TRACE) { "remaining input: $it" }
+////        TODO :Move lookup window
     }
-
-    window.print(DEBUG) { "dictionay:" }.forEach { "${it.key}, ${it.value}".print(DEBUG) }
+//    lookUpWindow.print(DEBUG) { "dictionary:" }.forEach { it.print(DEBUG) }
     "Ending program".print(INFO)
 }
 
@@ -74,11 +112,11 @@ data class Increment(val offset: Int, val length: Int, val nextCharacter: Char) 
         return "Triple($offset, $length, $nextCharacter)"
     }
 }
-
-fun registerPrefixFrom(cursor: Int, source: String) =
-    source.prefixMatches { !window.containsKey(it) }
-        .also { window[it] = cursor }
-        .print(DEBUG) { "new prefix saved to dictionary [ $it ]" }
+//
+//fun registerPrefixFrom(cursor: Int, source: String) =
+//    source.prefixMatches { !lookUpWindow.containsKey(it) }
+//        .also { lookUpWindow[it] = cursor }
+//        .print(DEBUG) { "new prefix saved to dictionary [ $it ]" }
 
 
 //fun findNextPefixFrom(source: String){
@@ -99,6 +137,53 @@ fun registerPrefixFrom(cursor: Int, source: String) =
 //    return this
 //}
 
+sealed class Prefix
+class FullPrefix(val prefix: String) : Prefix()
+class SubPrefix(val prefix: String, val nextChar: Char) : Prefix()
+class SingleCharPrefix(val char: Char) : Prefix()
+
+//fun String.findLongestExistingPrefix(doesExist: (String) -> Boolean): Prefix {
+//    var startIndex = 0
+//
+//
+//
+//
+//}
+
+
+//fun String.findLongestExistingPrefix(doesExist: (String) -> Boolean): Prefix {
+//    val firstChar = this[0]
+//    val prefix = StringBuffer().append(firstChar)
+//
+//    // if the first char is already a new prefix, we handle that differently
+//    if (!doesExist(prefix.toString())) {
+//        "Found non-existing single-prefix: [ $prefix ]\n".print(TRACE)
+//        return SingleCharPrefix(firstChar)
+//    }
+//
+//    // finding the longest existing prefix, checking one-by-one till the is no existing prefix
+//    for (index in 1 until length) {
+//        val nextChar = this[index]
+//        prefix.append(nextChar)
+//        "Checking existence on [ $prefix ]".print(TRACE)
+//
+//        if (doesExist(prefix.toString())) {
+//            "Prefix exists in dictionary, continue".print(TRACE)
+//            // prefix still exists, need the check with the next char
+//            continue
+//        }
+//
+//        // the part of the string is a prefix, we return the prefix plus the next char
+//        "Found sub prefix [ $prefix ]\n".print(TRACE)
+//        return SubPrefix(prefix.dropLast(1).toString(), nextChar)
+//    }
+//
+//    // the whole string is a unique prefix, we return that as is
+//    "The whole string is a prefix\n".print(TRACE)
+//    return FullPrefix(this)
+//}
+
+
 // TODO("inline")
 fun String.prefixMatches(predicate: (String) -> Boolean): String {
     "\nfinding prefix for [ $this ]".print(TRACE)
@@ -111,7 +196,7 @@ fun String.prefixMatches(predicate: (String) -> Boolean): String {
         "looking [ $currentPrefix ] up in dictionary".print(TRACE)
         if (predicate.invoke(currentPrefix)) {
             "[ $currentPrefix ] is a new prefix \n".print(TRACE)
-            return substring(0, index + 1)
+            return substring(0, index)
         }
         "[ $currentPrefix ] is not a prefix".print(TRACE)
     }
@@ -119,12 +204,12 @@ fun String.prefixMatches(predicate: (String) -> Boolean): String {
     return this
 }
 
-fun <T> T.print(logLevel: Log, messageCreator: (String) -> String): T {
+fun <T> T.print(logLevel: Log = TRACE, messageCreator: (String) -> String): T {
     if (logLevel >= rootLogLevel) println(messageCreator(this.toString()))
     return this
 }
 
-fun <T> T.print(logLevel: Log) : T {
+fun <T> T.print(logLevel: Log = TRACE): T {
     if (logLevel >= rootLogLevel) println(this)
     return this
 }
