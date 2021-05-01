@@ -26,7 +26,8 @@ enum class Log(val level: Int) {
     TRACE(1),
     DEBUG(2),
     INFO(3),
-    NONE(4)
+    NONE(4),
+    TEST(5),
 }
 
 private fun Int.toRange() = 1..this
@@ -172,6 +173,12 @@ fun output(increment: Increment) {
 data class Increment(val offset: Int, val length: Int, val nextCharacter: Char) {
     override fun toString(): String {
         return "Triple($offset, $length, $nextCharacter)"
+    }
+
+    fun convertToUTF16Char() {
+        val byteArray = ByteArray(4)
+        offset.toByte()
+
     }
 }
 

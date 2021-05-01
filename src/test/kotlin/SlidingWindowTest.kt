@@ -1,10 +1,11 @@
+import Log.*
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.lang.Exception
 import java.time.LocalDate
 import java.time.LocalTime
+import kotlin.math.pow
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -205,45 +206,49 @@ class SlidingWindowTest {
 
         // when
         var lookUpWindow = SlidingWindow(50)
-        val badlyCompressedIncrements = compress(hungarianText, lookUpWindow)
-        var decompressedText = decompress(badlyCompressedIncrements)
+        val increments = compress(hungarianText, lookUpWindow)
+        var decompressedText = decompress(increments)
 
         // then
-
-
+        assertEquals(hungarianText, decompressedText)
     }
-    private fun writeToRandomTextFile(
-        inputs: MutableList<String>,
-        outputs: MutableList<String>,
-        error: String? = null
-    ) {
-        val fileName = generateRandomFileName()
-        val file = File(fileName)
-        file.apply {
-            bufferedWriter().use { out ->
-                repeat(outputs.size) {
-                    out.write("Input text [ run: ${it + 1} ] \n")
-                    out.write(inputs[it])
-                    out.write("\n\n\n")
-                    out.write("Decompressed output text [ run: ${it + 1} ] \n")
-                    out.write(outputs[it])
-                    out.write("\n\n\n")
-                    error?.let {
-                        out.write("An error occurred during test execution:\n")
-                        out.write(error)
+
+    companion object {
+        fun writeToRandomTextFile(
+            inputs: MutableList<String>,
+            outputs: MutableList<String>,
+            error: String? = null
+        ) {
+            val fileName = generateRandomFileName()
+            val file = File(fileName)
+            file.apply {
+                bufferedWriter().use { out ->
+                    repeat(outputs.size) {
+                        out.write("Input text [ run: ${it + 1} ] \n")
+                        out.write(inputs[it])
+                        out.write("\n\n\n")
+                        out.write("Decompressed output text [ run: ${it + 1} ] \n")
+                        out.write(outputs[it])
+                        out.write("\n\n\n")
+                        error?.let {
+                            out.write("An error occurred during test execution:\n")
+                            out.write(error)
+                        }
                     }
                 }
             }
         }
+
+        fun generateRandomFileName(): String {
+            val date = LocalDate.now()
+            val time = LocalTime.now()
+            var randomEnding = ""
+            repeat(10) { randomEnding += Random.nextInt(10).toString() }
+            return "test" + date + "-" + time.hour + "-" + time.minute + "-" + time.second + "-" + randomEnding + ".lz"
+        }
     }
 
-    private fun generateRandomFileName(): String {
-        val date = LocalDate.now()
-        val time = LocalTime.now()
-        var randomEnding = ""
-        repeat(10) { randomEnding += Random.nextInt(10).toString() }
-        return "test" + date + "-" + time.hour + "-" + time.minute + "-" + time.second + "-" + randomEnding
-    }
+
 
     private fun Int.toRange() = 1..this
 
