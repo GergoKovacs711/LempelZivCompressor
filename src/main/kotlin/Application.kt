@@ -24,13 +24,15 @@ import java.io.File
  * Max 2047 sliding window
  */
 
-//-f src/main/resources/file/output/input_text.txt -c -v
+//-f src/main/resources/file/input/input_file_en.txt -c -v
+//-f src/main/resources/file/input/compressed_file_en.lz -d -v
 
 //const val inputString = "aababbbabaababbbabbabb"
 //const val inputString = "ababcbababaa"
 const val inputString = "aacaacabcabaaac"
 
 var rootLogLevel = NONE
+val direkRootOutPut = true
 
 enum class Log(val level: Int) {
     TRACE(1),
@@ -54,6 +56,7 @@ fun main(args: Array<String>) = mainBody {
 
 fun ConsoleArgument.printArguments() {
     if (verbose) {
+        rootLogLevel = TRACE
         filePath.print(INFO) { "File path is $it" }
         verbose.print(INFO) { "Verbose is ${if (verbose) "on" else "off"}" }
         mode.print(INFO) { "Mode is $it" }
@@ -74,10 +77,15 @@ class Application {
     fun process(filePath: String, mode: Mode, windowSize: Int) {
         "Starting program".print(INFO)
         when (mode) {
-            Mode.COMPRESS -> compress(filePath, SlidingWindow(windowSize))
-//            Mode.DECOMPRESS -> //decompress(filePath)/
+            Mode.COMPRESS -> compressFile(filePath, SlidingWindow(windowSize))
+            Mode.DECOMPRESS -> decompress(filePath)
         }
         "Ending program".print(INFO)
+    }
+
+    private fun compressFile(filePath: String, lookUpWindow: SlidingWindow) {
+        val inputString = FileAccess.readFileAsString(filePath)
+        compress(inputString, lookUpWindow)
     }
 
     fun compress(inputString: String, lookUpWindow: SlidingWindow): List<Triplet> {
@@ -106,23 +114,24 @@ class Application {
             tripletCounter++.print(INFO)
             triplets.add(currentTriplet)
 
-            lookUpWindow.toString().print { "lookUpWindow: $it" }
+//            lookUpWindow.toString().print { "lookUpWindow: $it" }
             lookUpWindow.popIfFull(currentTriplet.length + 1)
-            lookUpWindow.toString().print { "lookUpWindow: $it" }
-            currentTriplet.print { "currentTriplet.length $it" }
-            tempString.print { "tempString $it" }
+//            lookUpWindow.toString().print { "lookUpWindow: $it" }
+//            currentTriplet.print { "currentTriplet.length $it" }
+//            tempString.print { "tempString $it" }
 
             val (front, back) = tempString.splitAtIndex(currentTriplet.length + 1)
-            front.print { "front $it" }
-            back.print { "back $it" }
+//            front.print { "front $it" }
+//            back.print { "back $it" }
             lookUpWindow.push(front)
-            lookUpWindow.toString().print { "lookUpWindow: $it" }
+//            lookUpWindow.toString().print { "lookUpWindow: $it" }
             tempString = back
-            currentTriplet.print { "currentTriplet $it" }
-            tempString.print { "tempString $it" }
-            tempString.print(TRACE) { "remaining input: $it" }
+//            currentTriplet.print { "currentTriplet $it" }
+//            tempString.print { "tempString $it" }
+//            tempString.print(TRACE) { "remaining input: $it" }
         }
         val tripletsAsByteArray = encode(triplets)
+        // TODO: add flag for test so that output doesn't get flooded with test outputfiles...
         FileAccess.writeToFile(tripletsAsByteArray).print(INFO) { "Created file: $it" }
         return triplets
     }
@@ -167,22 +176,31 @@ class Application {
         return tripletsAsByteArray
     }
 
+    fun decode(filePath: String): List<Triplet> {
+        val encodedData = FileAccess.readFromFile(filePath)
+        return encodedData.toList().chunked(4).map { chunk ->
+            ByteArray(4).apply {
+                chunk.forEachIndexed { index, it -> set(index, it) }
+            }
+        }.map { Triplet(it) }
+    }
+
+    fun decompress(filePath: String) {
+        val triplets = decode(filePath)
+        val text = decompress(triplets)
+        FileAccess.writeToFile(text).print(INFO) { "Created file: $it" }
+    }
+
     fun decompress(triplets: List<Triplet>): String {
         val buffer = StringBuffer()
-
-        triplets.forEachIndexed triplet@{ index, it ->
+        triplets.forEach triplet@{
             if (it.offset == 0) {
                 buffer.append(it.nextCharacter)
                 return@triplet
             }
             buffer.apply {
                 val startIndex = this.length - it.offset
-                try {
-                    append(substring(startIndex, startIndex + it.length))
-                } catch (e: StringIndexOutOfBoundsException) {
-                    throw e
-                }
-
+                append(substring(startIndex, startIndex + it.length))
                 append(it.nextCharacter)
             }
         }

@@ -148,19 +148,20 @@ class EncodingTest {
     @Test
     fun `Generate, encode and write input text then read, decode and compare it with the original`(){
         // given
-        val fileName = "decode_003.lz"
+        val fileName = "decode_001.lz"
         val encodedBytes = readStaticTestFile(fileName)
 
         // when
-        encodedBytes.toList().chunked(4).map { chunk ->
+        val triplets = encodedBytes.toList().chunked(4).map { chunk ->
             ByteArray(4).apply {
                 chunk.forEachIndexed { index, it ->
                     set(index, it)
                 }
             }
-        } .map { Triplet(it) }
+        }.map { Triplet(it) }
 
         // then
+        triplets.prt()
     }
 
     @Test
