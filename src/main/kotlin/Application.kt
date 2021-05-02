@@ -24,11 +24,13 @@ import java.io.File
  * Max 2047 sliding window
  */
 
+//-f src/main/resources/file/output/input_text.txt -c -v
+
 //const val inputString = "aababbbabaababbbabbabb"
 //const val inputString = "ababcbababaa"
 const val inputString = "aacaacabcabaaac"
 
-var rootLogLevel = INFO
+var rootLogLevel = NONE
 
 enum class Log(val level: Int) {
     TRACE(1),
@@ -51,9 +53,9 @@ fun main(args: Array<String>) = mainBody {
 }
 
 fun ConsoleArgument.printArguments() {
-    if(verbose) {
+    if (verbose) {
         filePath.print(INFO) { "File path is $it" }
-        verbose.print(INFO) { "Verbose is ${if(verbose) "on" else "off"}" }
+        verbose.print(INFO) { "Verbose is ${if (verbose) "on" else "off"}" }
         mode.print(INFO) { "Mode is $it" }
         windowSize.print(INFO) { "Window size is $it" }
     }
@@ -71,9 +73,9 @@ fun ConsoleArgument.printArguments() {
 class Application {
     fun process(filePath: String, mode: Mode, windowSize: Int) {
         "Starting program".print(INFO)
-        when(mode) {
+        when (mode) {
             Mode.COMPRESS -> compress(filePath, SlidingWindow(windowSize))
-            Mode.DECOMPRESS -> decompress(filePath)
+//            Mode.DECOMPRESS -> //decompress(filePath)/
         }
         "Ending program".print(INFO)
     }
@@ -102,7 +104,6 @@ class Application {
             }
 
             tripletCounter++.print(INFO)
-
             triplets.add(currentTriplet)
 
             lookUpWindow.toString().print { "lookUpWindow: $it" }
@@ -121,6 +122,8 @@ class Application {
             tempString.print { "tempString $it" }
             tempString.print(TRACE) { "remaining input: $it" }
         }
+        val tripletsAsByteArray = encode(triplets)
+        FileAccess.writeToFile(tripletsAsByteArray).print(INFO) { "Created file: $it" }
         return triplets
     }
 
@@ -130,27 +133,6 @@ class Application {
         else -> index
     }.let {
         take(it) to substring(it)
-    }
-
-    fun String.nextCharAfter(lastIndex: Int): Char {
-        if (lastIndex >= this.length) {
-            return this.last()
-        }
-        return this[lastIndex + 1]
-    }
-
-    fun output(triplet: Triplet) {
-        triplet.print(DEBUG)
-    }
-
-    fun encode(triplets: List<Triplet>) {
-        val tripletsAsByteArray = ByteArray(triplets.size * 4)
-        triplets.forEachIndexed { tripletIndex, triplet ->
-            triplet.toByteArray().forEachIndexed { dataIndex, data ->
-                tripletsAsByteArray[(tripletIndex * 4) + dataIndex] = data
-            }
-        }
-        FileAccess.writeToFile(tripletsAsByteArray).print(INFO) { "Created file: $it" }
     }
 
     fun String.findLongestExistingPrefixOn(
@@ -175,32 +157,37 @@ class Application {
         return lastFoundPrefix.also { "returning last found prefix: [ ${if (it is PrefixFound) it.prefix else "None"} ]\n".print() }
     }
 
-    fun decode(filePath: String): List<Triplet> {
-        val data = FileAccess.readFromFile(filePath)
-        return data.toList().chunked(4).map { chunk ->
-            ByteArray(4).apply {
-                chunk.forEachIndexed { index, it ->
-                    set(index, it)
-                }
+    fun encode(triplets: List<Triplet>): ByteArray {
+        val tripletsAsByteArray = ByteArray(triplets.size * 4)
+        triplets.forEachIndexed { tripletIndex, triplet ->
+            triplet.toByteArray().forEachIndexed { dataIndex, data ->
+                tripletsAsByteArray[(tripletIndex * 4) + dataIndex] = data
             }
-        } .map { Triplet(it) }
+        }
+        return tripletsAsByteArray
     }
 
-    fun decompress(filePath: String): String {
-        val triplets = decode(filePath)
+    fun decompress(triplets: List<Triplet>): String {
         val buffer = StringBuffer()
-        triplets.forEach triplet@{
+
+        triplets.forEachIndexed triplet@{ index, it ->
             if (it.offset == 0) {
                 buffer.append(it.nextCharacter)
                 return@triplet
             }
             buffer.apply {
+                val startIndex = this.length - it.offset
+                try {
+                    append(substring(startIndex, startIndex + it.length))
+                } catch (e: StringIndexOutOfBoundsException) {
+                    throw e
+                }
+
                 append(it.nextCharacter)
             }
         }
         return buffer.toString()
     }
-
 }
 
 fun <T> T.print(logLevel: Log = TRACE, messageCreator: (String) -> String): T {

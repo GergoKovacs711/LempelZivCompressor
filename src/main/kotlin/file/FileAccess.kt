@@ -12,7 +12,7 @@ object FileAccess {
 
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
 
-    fun writeToFile(bytes: ByteArray): String {
+    fun writeToFile(bytes: ByteArray, filePath: String = ""): String {
         val fileName = randomTimestampedFileName()
         val file = File(fileName.output())
         file.writeBytes(bytes)

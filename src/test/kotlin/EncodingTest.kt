@@ -148,7 +148,7 @@ class EncodingTest {
     @Test
     fun `Generate, encode and write input text then read, decode and compare it with the original`(){
         // given
-        val fileName = "decode_001.lz"
+        val fileName = "decode_003.lz"
         val encodedBytes = readStaticTestFile(fileName)
 
         // when

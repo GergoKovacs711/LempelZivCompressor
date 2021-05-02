@@ -139,8 +139,8 @@ class SlidingWindowTest {
     fun `Randomised stress-test`() {
         // given
         val charPool: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')
-        val runs = 1000
-        val inputSize = 100000
+        val runs = 20
+        val inputSize = 10000
 
         val inputs = mutableListOf<String>()
         val outputs = mutableListOf<String>()
