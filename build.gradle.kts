@@ -6,14 +6,14 @@ plugins {
 }
 
 group = "hu.gergo.kovacs"
-version = "1.0-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
 }
 
-val arrowVersion = "0.13.1"
 dependencies {
+    implementation ("com.xenomachina:kotlin-argparser:2.0.7")
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.6.0")
@@ -28,5 +28,14 @@ tasks.withType<KotlinCompile>() {
 }
 
 application {
-    mainClassName = "MainKt"
+    mainClassName = "Application"
+}
+
+tasks.withType<Jar>() {
+    manifest {
+        attributes["Main-Class"] = "ApplicationKt"
+    }
+    configurations["compileClasspath"].forEach { file: File ->
+        from(zipTree(file.absoluteFile))
+    }
 }
