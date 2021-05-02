@@ -1,97 +1,132 @@
-import Log.*
 import SlidingWindowTest.Companion.generateRandomFileName
-import SlidingWindowTest.Companion.writeToRandomTextFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.io.File
-import java.util.*
+import kotlin.random.Random
 import kotlin.test.assertEquals
 
 @ExperimentalUnsignedTypes
 class EncodingTest {
     @Test
-    fun `Encoding test`() {
-        val charPool: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9') + ('~'..'ž')
-//        charPool.forEach { "char: [ $it ] ; int: [ ${it.toByte()} ]".print(Log.TEST) }
-//        2.0.pow(10.0).print(TEST)
-//        2.0.pow(11.0).print(TEST)
-//        2.0.pow(12.0).print(TEST)
-
-//        charPool.forEachIndexed { index, it ->
-//            val char = it.toChar().toInt().toString(2).padStart(10, '0')
-//            val charBits = char.toInt().toString(2).padStart(10, '0')
-//            "char: [ ${it.toChar()} ] ; int: [ ${char.toInt()} ] ; char as bits: [ $charBits ]".prt()
-//        }
-
-//        (0..1023).forEachIndexed { index, it ->
-//            "char: [ ${it.toChar()} ] ; int: [ ${index} ] ; char as bits: [ $ ]".prt()
-//        }
-
-        val offset = 2047
-        val length = 128
-        val char = 'ő'
-
-        val buffer = StringBuffer()
-
-        val offsetBits = offset.toUInt().toString(2).padStart(11, '0').prt()
-        val lengthBits = length.toUInt().toString(2).padStart(11, '0').prt()
-        val charBits = char.toInt().toString(2).padStart(10, '0').prt() // TODO: ez nem unsigned??
-
-        buffer.apply {
-            append(offsetBits)
-            append(lengthBits)
-            append(charBits)
-        }.prt()
-
-        val chunks = buffer.toString().chunked(8)
-        chunks.forEach { "size: [ ${it.length}, chunk: [ $it ] ]".prt() }
-        val bytes = chunks.map { it.toUInt(2).toUByte() }
-        bytes.prt()
-
-        val encodedBytes = ByteArray(4).apply {
-            bytes.forEachIndexed { index, it ->
-                set(index, it.toByte())
-            }
-        }
-        writeToRandomFile(encodedBytes)
-    }
-
-    @Test
-    fun `Decode one increment from file`(){
+    fun `Decode one triplet from file`() {
+        // given
         val file = File("src/test/resources/file/decode_001.lz")
         val encodedBytes = file.readBytes()
 
+        // when
         encodedBytes.forEach { it.prt() }
         val data = encodedBytes.joinToString("") { it.toUByte().toUInt().toString(2).padStart(8, '0') }.prt()
 
         val offsetString = data.substring(0, 11)
-        val lengthString  = data.substring(11, 22)
-        val charString  = data.substring(22, 32)
+        val lengthString = data.substring(11, 22)
+        val charString = data.substring(22, 32)
 
         val offset = offsetString.padStart(16, '0').toUInt(2).prt()
         val length = lengthString.padStart(16, '0').toUInt(2).prt()
         val char = charString.padStart(16, '0').toInt(2).toChar().prt()
 
+        // then
         assertEquals(2047u, offset)
         assertEquals(128u, length)
         assertEquals('ő', char)
     }
 
-    fun ByteArray.byteToInt(): Int {
-        var result = 0
-        var shift = 0
-        for (byte in this) {
-            result = result or (byte.toInt() shl shift)
-            shift += 8
-        }
-        return result
+    @Test
+    fun `Encode then decode one triplet`() {
+        // given
+        val offset = 2047
+        val length = 128
+        val char = 'ő'
+        val originalTriplet = Triplet(offset, length, char)
+
+        // when
+        val encodedTriplet = originalTriplet.toByteArray()
+        val decodedTriplet = Triplet(encodedTriplet)
+
+        // then
+        assertEquals(originalTriplet, decodedTriplet)
     }
 
-    fun writeToRandomFile(
+    @Test
+    fun `Encode then decode triplets`() {
+        // given
+        val originalTriplets = mutableListOf<Triplet>().apply {
+            add(Triplet(0, 0, 'a'))
+            add(Triplet(1, 1, 'c'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(0, 0, 'b'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(6, 1, 'a'))
+            add(Triplet(0, 0, 'c'))
+        }
+
+        // when
+        val encodedTriplets = originalTriplets.map { it.toByteArray() }
+        val decodedTriplets = encodedTriplets.map { Triplet(it) }
+
+        // then
+        assertEquals(originalTriplets, decodedTriplets)
+    }
+
+    @Test
+    fun `Testing value limits for encoding`() {
+        // given
+        val validLowestTriplet = Triplet(0, 0, ' ')
+        val validHighestTriplet = Triplet(2047, 2047, 'Ͽ')
+        val originalTriplets = listOf(validLowestTriplet, validHighestTriplet)
+
+        // when
+        val encodedTriplets = originalTriplets.map { it.toByteArray() }
+        val decodedTriplets = encodedTriplets.map { Triplet(it) }
+
+        // then
+        assertEquals(validLowestTriplet, decodedTriplets[0])
+        assertEquals(validHighestTriplet, decodedTriplets[1])
+    }
+
+    @Test
+    fun `Randomised triplet encoding-decoding stress test`() {
+        // given
+        val batches = 0..5
+        val tripletsPerBatch = 0..1000
+        val validOffsetAndLengthRange = 2048
+        val validCharRange = 1024
+
+        // when
+        batches.forEach { _ ->
+            tripletsPerBatch.forEach { _ ->
+                val offset = Random.nextInt(validOffsetAndLengthRange)
+                val length = Random.nextInt(validOffsetAndLengthRange)
+                val char = Random.nextInt(validCharRange).toChar()
+                val randomValidTriplet = Triplet(offset, length, char)
+                val newTriplet = Triplet(randomValidTriplet.toByteArray())
+                // then
+                assertEquals(randomValidTriplet, newTriplet)
+            }
+        }
+    }
+
+    @Test
+    fun `Test Triplet creation with too high, out of bound parameters`() {
+        // given
+        val tooHighOffset: () -> Triplet = { Triplet(2048, 0, ' ') }
+        val tooHighLength: () -> Triplet = { Triplet(0, 2048, ' ') }
+        val tooHighChar: () -> Triplet = { Triplet(0, 0, 'Ѐ') }
+
+        // when
+        listOf(tooHighOffset, tooHighLength, tooHighChar).forEach {
+            // then
+            assertThrows<IllegalArgumentException> { it.invoke() }
+        }
+    }
+
+    private fun writeToRandomFile(
         bytes: ByteArray
-    ) {
+    ): String {
         val fileName = generateRandomFileName()
-        val file = File(fileName)
+        val file = File("src/test/resources/$fileName")
         file.writeBytes(bytes)
+        return fileName
     }
 }
 

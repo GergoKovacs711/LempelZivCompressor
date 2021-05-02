@@ -1,10 +1,8 @@
-import Log.*
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.lang.Exception
 import java.time.LocalDate
 import java.time.LocalTime
-import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -95,18 +93,18 @@ class SlidingWindowTest {
     @Test
     fun `Basic decompression`() {
         // given
-        val increments = mutableListOf<Increment>().apply {
-            add(Increment(0, 0, 'a'))
-            add(Increment(1, 1, 'c'))
-            add(Increment(3, 3, 'a'))
-            add(Increment(0, 0, 'b'))
-            add(Increment(3, 3, 'a'))
-            add(Increment(6, 1, 'a'))
-            add(Increment(0, 0, 'c'))
+        val triplets = mutableListOf<Triplet>().apply {
+            add(Triplet(0, 0, 'a'))
+            add(Triplet(1, 1, 'c'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(0, 0, 'b'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(6, 1, 'a'))
+            add(Triplet(0, 0, 'c'))
         }
 
         // when
-        val result = decompress(increments)
+        val result = decompress(triplets)
 
         // then
         assertEquals("aacaacabcabaaac", result)
@@ -117,14 +115,14 @@ class SlidingWindowTest {
         // given
         val inputString = "aacaacabcabaaac"
 
-        val increments = mutableListOf<Increment>().apply {
-            add(Increment(0, 0, 'a'))
-            add(Increment(1, 1, 'c'))
-            add(Increment(3, 3, 'a'))
-            add(Increment(0, 0, 'b'))
-            add(Increment(3, 3, 'a'))
-            add(Increment(6, 1, 'a'))
-            add(Increment(0, 0, 'c'))
+        val triplets = mutableListOf<Triplet>().apply {
+            add(Triplet(0, 0, 'a'))
+            add(Triplet(1, 1, 'c'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(0, 0, 'b'))
+            add(Triplet(3, 3, 'a'))
+            add(Triplet(6, 1, 'a'))
+            add(Triplet(0, 0, 'c'))
         }
 
         val lookUpWindow = SlidingWindow(6)
@@ -134,7 +132,7 @@ class SlidingWindowTest {
         val decompressed = decompress(result)
 
         // then
-        assertEquals(increments, result)
+        assertEquals(triplets, result)
         assertEquals("aacaacabcabaaac", decompressed)
     }
 
@@ -158,8 +156,8 @@ class SlidingWindowTest {
                     .joinToString("")
                     .also { inputs.add(it) }
 
-                val increments = compress(inputText, lookUpWindow)
-                val decompressedText = decompress(increments).also { outputs.add(it) }
+                val triplets = compress(inputText, lookUpWindow)
+                val decompressedText = decompress(triplets).also { outputs.add(it) }
 
                 // then
                 if(inputText != decompressedText){
@@ -187,8 +185,8 @@ class SlidingWindowTest {
 
         repeat(10) {
             var lookUpWindow = SlidingWindow(256)
-            val badlyCompressedIncrements = compress(buggyInput, lookUpWindow)
-            var decompressedText = decompress(badlyCompressedIncrements)
+            val badlyCompressedTriplets = compress(buggyInput, lookUpWindow)
+            var decompressedText = decompress(badlyCompressedTriplets)
 
             // then
             if(buggyInput != decompressedText){
@@ -206,8 +204,8 @@ class SlidingWindowTest {
 
         // when
         var lookUpWindow = SlidingWindow(50)
-        val increments = compress(hungarianText, lookUpWindow)
-        var decompressedText = decompress(increments)
+        val triplets = compress(hungarianText, lookUpWindow)
+        var decompressedText = decompress(triplets)
 
         // then
         assertEquals(hungarianText, decompressedText)
