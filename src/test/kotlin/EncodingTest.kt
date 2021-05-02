@@ -4,6 +4,7 @@ import SlidingWindowTest.Companion.writeToRandomTextFile
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.util.*
+import kotlin.test.assertEquals
 
 @ExperimentalUnsignedTypes
 class EncodingTest {
@@ -55,8 +56,8 @@ class EncodingTest {
     }
 
     @Test
-    fun readFile(){
-        val file = File("test2021-05-01-22-54-42-4361415245.lz")
+    fun `Decode one increment from file`(){
+        val file = File("src/test/resources/file/decode_001.lz")
         val encodedBytes = file.readBytes()
 
         encodedBytes.forEach { it.prt() }
@@ -66,9 +67,13 @@ class EncodingTest {
         val lengthString  = data.substring(11, 22)
         val charString  = data.substring(22, 32)
 
-        val offset = offsetString.toByte(2)
-        val length = lengthString.toByte(2)
-        val char = charString.toByte(2)
+        val offset = offsetString.padStart(16, '0').toUInt(2).prt()
+        val length = lengthString.padStart(16, '0').toUInt(2).prt()
+        val char = charString.padStart(16, '0').toInt(2).toChar().prt()
+
+        assertEquals(2047u, offset)
+        assertEquals(128u, length)
+        assertEquals('ő', char)
     }
 
     fun ByteArray.byteToInt(): Int {

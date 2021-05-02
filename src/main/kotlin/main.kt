@@ -104,17 +104,17 @@ fun wrapper(){
     "Ending program".print(INFO)
 }
 
-fun compress(inputString: String, lookUpWindow: SlidingWindow): List<Increment> {
+fun compress(inputString: String, lookUpWindow: SlidingWindow): List<Triplet> {
     var tempString = inputString
-    val increments = mutableListOf<Increment>()
+    val increments = mutableListOf<Triplet>()
     var incrementCounter = 0
     while (tempString.isNotBlank()) {
         val currentIncrement = if (tempString.length == 1) {
-            Increment(0, 0, tempString[0])
+            Triplet(0, 0, tempString[0])
         } else {
             when (val result = tempString.findLongestExistingPrefixOn(lookUpWindow) { lookUpWindow.find(it) }) {
                 None -> {
-                    Increment(0, 0, tempString.first())
+                    Triplet(0, 0, tempString.first())
                 }
                 is PrefixFound -> {
                     if(result.prefix.length == tempString.length) {
@@ -122,7 +122,7 @@ fun compress(inputString: String, lookUpWindow: SlidingWindow): List<Increment> 
                     }
                     val length = result.prefix.length
                     val offset = lookUpWindow.size() - result.index
-                    Increment(offset, length, tempString.getOrNull(length) ?: tempString.last())
+                    Triplet(offset, length, tempString.getOrNull(length) ?: tempString.last())
                 }
             }
         }
@@ -166,21 +166,11 @@ fun String.nextCharAfter(lastIndex: Int): Char {
     return this[lastIndex + 1]
 }
 
-fun output(increment: Increment) {
+fun output(increment: Triplet) {
     increment.print(DEBUG)
 }
 
-data class Increment(val offset: Int, val length: Int, val nextCharacter: Char) {
-    override fun toString(): String {
-        return "Triple($offset, $length, $nextCharacter)"
-    }
 
-    fun convertToUTF16Char() {
-        val byteArray = ByteArray(4)
-        offset.toByte()
-
-    }
-}
 
 fun String.findLongestExistingPrefixOn(lookUpWindow: SlidingWindow, lookUp: (String) -> PrefixSearchResult): PrefixSearchResult {
     val prefix = StringBuffer()
@@ -200,7 +190,7 @@ fun String.findLongestExistingPrefixOn(lookUpWindow: SlidingWindow, lookUp: (Str
     return lastFoundPrefix.also { "returning last found prefix: [ ${if(it is PrefixFound) it.prefix else "None"} ]\n".print()}
 }
 
-fun decompress(increments : List<Increment>) : String {
+fun decompress(increments : List<Triplet>) : String {
     val buffer = StringBuffer()
 
     increments.forEachIndexed increment@{ index, it ->
