@@ -1,12 +1,22 @@
+import config.Mode
+import config.NotProvided
+import file.FileAccess
 import file.writeToRandomOutPutFile
 import org.junit.jupiter.api.Test
+import util.LogLevel
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @ExperimentalUnsignedTypes
 class SlidingWindowTest {
-    val app = Application()
+    private val app = Application(
+        filePath = NotProvided,
+        logLevel = LogLevel.NONE,
+        mode = Mode.COMPRESS,
+        windowSize = 512,
+        directRootOutPut = FileAccess.DirectoryOutput.TEST
+    )
 
     @Test
     fun `Window return the actual number of elemnts`() {

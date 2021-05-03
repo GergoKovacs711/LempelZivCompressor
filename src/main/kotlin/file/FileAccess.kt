@@ -1,41 +1,78 @@
 package file
 
-import file.FileAccess.output
+import config.FilePathOption
+import config.NotProvided
+import config.Provided
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
-const val direktRootOutput = true
-
 object FileAccess {
+    enum class DirectoryOutput {
+        DIRECT,
+        PATH,
+        TEST
+    }
+
+    var directoryOutput : DirectoryOutput = DirectoryOutput.DIRECT
+
     private const val RESOURCE_PATH = "src/main/resources/file"
-    private fun String.output() = if(direktRootOutput) this else "$RESOURCE_PATH/output/$this"
-    private fun String.input() = if(direktRootOutput) this else "$RESOURCE_PATH/input/$this"
+    private const val OUTPUT_PATH = "${RESOURCE_PATH}/output"
+    private const val INPUT_PATH = "${RESOURCE_PATH}/input"
+    private const val TEST_PATH = "${RESOURCE_PATH}/temp"
+
+    private fun String.output() : String {
+        return when (directoryOutput) {
+            DirectoryOutput.DIRECT -> this
+            DirectoryOutput.PATH -> "$OUTPUT_PATH/$this"
+            DirectoryOutput.TEST -> "$TEST_PATH/$this"
+        }
+    }
+
+    private fun String.input() : String {
+        return when (directoryOutput) {
+            DirectoryOutput.DIRECT -> this
+            DirectoryOutput.PATH -> "$INPUT_PATH/$this"
+            DirectoryOutput.TEST -> "$TEST_PATH/$this"
+        }
+    }
+
+    private const val compressionFile = "input_file_en.txt"
+    private const val decompressionFile = "compressed_file_en.lz"
 
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
 
-    fun writeToFile(bytes: ByteArray): String {
-        val fileName = randomTimestampedFileName("lz")
-        val file = File(fileName.output())
-        file.writeBytes(bytes)
-        return fileName
+    fun writeToFile(bytes: ByteArray, filePath: FilePathOption  = NotProvided): String {
+        when (filePath) {
+            NotProvided -> File(compressionFile.output())
+            is Provided -> File(filePath.path.output())
+        }.writeBytes(bytes)
+        return "" // TODO: fix for tests
     }
 
-    fun writeToFile(data: String, filePath: String = ""): String {
-        val fileName = randomTimestampedFileName("txt")
-        val file = File(fileName.output())
-        file.writeText(data)
-        return fileName
+    fun writeToFile(data: String, filePath: FilePathOption = NotProvided): String {
+        when (filePath) {
+            NotProvided -> File(decompressionFile.output())
+            is Provided -> File(filePath.path.output())
+        }.writeText(data)
+        return "" // TODO: fix for tests
     }
 
-    fun readFromFile(filePath: String): ByteArray {
-        return File(filePath).readBytes()
+    fun readFromFile(filePath: FilePathOption): ByteArray {
+        return when (filePath) {
+            NotProvided -> File(decompressionFile.input())
+            is Provided -> File(filePath.path.input())
+        }.readBytes()
     }
 
-    fun readFileAsString(filePath: String): String {
-        return File(filePath).readText()
+    fun readFileAsString(filePath: FilePathOption): String {
+        return when (filePath) {
+            NotProvided -> File(compressionFile.input())
+            is Provided -> File(filePath.path.input())
+        }.readText()
     }
+
 
     fun randomTimestampedFileName(fileSuffix: String): String {
         var randomEnding = ""

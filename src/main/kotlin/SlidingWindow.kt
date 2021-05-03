@@ -1,4 +1,11 @@
-sealed class PrefixSearchResult
+sealed class PrefixSearchResult {
+    override fun toString(): String {
+        return when(this) {
+            is PrefixFound -> this.toString()
+            is None -> "None"
+        }
+    }
+}
 data class PrefixFound(val index: Int, val prefix: String) : PrefixSearchResult()
 object None : PrefixSearchResult()
 
