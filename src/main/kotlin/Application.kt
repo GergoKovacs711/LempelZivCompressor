@@ -1,15 +1,15 @@
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.mainBody
-import config.ConsoleArgument
-import config.FilePathOption
-import config.Mode
+import config.*
 import file.FileAccess
-import file.FileAccess.DirectoryOutput.*
-import util.LogLevel
-import util.LogLevel.*
-import util.print
-import util.printO
-import util.rootLogLevel
+import file.FileAccess.DirectoryOutput.DIRECT
+import logging.LogLevel
+import logging.LogLevel.DEBUG
+import logging.LogLevel.INFO
+import logging.print
+import logging.printO
+import logging.rootLogLevel
+import model.*
 
 /**
  * 14. Készítsen programot, amely elvégzi egy szöveg Lempel-Ziv kódolását!
@@ -29,20 +29,13 @@ import util.rootLogLevel
  * Max 2047 sliding window
  */
 
-//-f src/main/resources/file/input/input_file_en.txt -c -v
-//-f src/main/resources/file/input/compressed_file_en.lz -d -v
-
-//const val inputString = "aababbbabaababbbabbabb"
-//const val inputString = "ababcbababaa"
-const val inputString = "aacaacabcabaaac"
-
 @ExperimentalUnsignedTypes
 fun main(args: Array<String>) = mainBody {
     ArgParser(args).parseInto(::ConsoleArgument).run {
         printArguments()
-        val app = Application(
+        Application(
             filePath = parseFilePath(),
-            logLevel = INFO,
+            logLevel = parseVerbosity(),
             mode = mode,
             windowSize = windowSize,
             directRootOutPut = DIRECT
@@ -64,7 +57,7 @@ class Application(
     }
 
     fun process() {
-        "Starting program".print(INFO)
+        "Program started.\n".print(INFO)
         when (mode) {
             Mode.COMPRESS -> compressFile(filePath, SlidingWindow(windowSize))
             Mode.DECOMPRESS -> decompress(filePath)
@@ -73,11 +66,16 @@ class Application(
     }
 
     private fun compressFile(filePath: FilePathOption, lookUpWindow: SlidingWindow) {
+        when(filePath) {
+            NotProvided -> "No filepath provided. Compressing input_file_en.txt\n".print(INFO)
+            is Provided -> "Compressing ${filePath.path}\n".print(INFO)
+        }
         val inputString = FileAccess.readFileAsString(filePath)
         val tripletsAsByteArray = compress(inputString, lookUpWindow)
-            .print(DEBUG) { "Created triplets [ $it ]" }
+            .printO(DEBUG) { "[ ${it.size} ] triplets created" }
+            .printO { it.joinToString(", ") { triplet -> triplet.conciseString() } }
             .let { encode(it) }
-            .print(DEBUG) { "Encoding triplets" }
+            .print(DEBUG) { "Triplets encoded" }
         FileAccess.writeToFile(tripletsAsByteArray).print(INFO) { "Created file [ $it ]" }
     }
 
@@ -93,65 +91,58 @@ class Application(
                     None -> {
                         Triplet(0, 0, inputBuffer.first())
                     }
-                    is PrefixFound -> {
+                    is Prefix -> {
                         val length = result.prefix.length
                         val offset = lookUpWindow.size() - result.index
                         Triplet(offset, length, inputBuffer.getOrNull(length) ?: inputBuffer.last())
                     }
                 }
             }
-            currentTriplet.print(DEBUG) { "Created triplet [ $it ]" }
-            tripletCounter++.print(DEBUG) { "Triplet count [ $it ]" }
+            currentTriplet.print(DEBUG) { "Created triplet [ $it ]\n" }
+            tripletCounter++.print { "model.Triplet count [ $it ]\n" }
             triplets.add(currentTriplet)
 
-            lookUpWindow.toString().print { "Lookup window before popping last elements [ $it ]" }
-            lookUpWindow.popIfFull(currentTriplet.length + 1)
-            lookUpWindow.toString().print { "Lookup window after popping last elements [$it ]" }
+            lookUpWindow.toString().print { "Lookup window before popping last elements $it" }
+            val segmentLength = (currentTriplet.length + 1).print { "Removing last [ $it ] element from lookup window, if it is already full" }
+            lookUpWindow.popIfFull(segmentLength)
+            lookUpWindow.toString().print { "Lookup window after popping last elements $it" }
 
             inputBuffer.print { "Input buffer before splitting [ $it ]" }
-            val (front, back) = inputBuffer.splitAtIndex(currentTriplet.length + 1)
+            segmentLength.print { "Splitting input buffer at [ $segmentLength ] index" }
+            val (front, back) = inputBuffer.splitAtIndex(segmentLength)
             front.print { "Front [ $it ]" }
             back.print { "Back [ $it ]" }
 
             lookUpWindow.push(front).print { "Pushing front into lookup window" }
-            lookUpWindow.toString().print { "Lookup window [ $it ]" }
+            lookUpWindow.toString().print { "Lookup window $it" }
 
             inputBuffer = back
-            inputBuffer.print { "Remaining input buffer [ $it ]" }
+            inputBuffer.print { "Remaining input buffer [ $it ]\n" }
         }
         return triplets
     }
 
-    fun String.splitAtIndex(index: Int) = when {
-        index < 0 -> 0
-        index > length -> length
-        else -> index
-    }.let {
-        take(it) to substring(it)
-    }
-
-    fun String.findLongestExistingPrefixOn(
+    private fun String.findLongestExistingPrefixOn(
         lookUpWindow: SlidingWindow,
         lookUp: (String) -> PrefixSearchResult
     ): PrefixSearchResult {
         val prefix = StringBuffer()
-        val maxLookUpLength = lookUpWindow.maxSize.coerceAtMost(this.length - 1).print { "maxLookUpLength: [ $it ]" }
+        val maxLookUpLength = lookUpWindow.maxSize.coerceAtMost(this.length - 1).print(DEBUG) { "Max lookup length: [ $it ]" }
 
         var lastFoundPrefix: PrefixSearchResult = None
         for (index in 0 until maxLookUpLength) {
-            val nextChar = this[index]
-            prefix.append(nextChar)
-            val nextResult = lookUp(prefix.toString()).printO { "nextResult: [ $it ]" }
-            when (nextResult) {
-                None -> return lastFoundPrefix.also { "no prefix exists for: [ $prefix ] returning: [ $it ]\n".print() }
-                is PrefixFound -> lastFoundPrefix = nextResult
+            this[index].let { prefix.append(it) }
+            when (val nextResult = lookUp(prefix.toString()).printO { "Next lookup result: [ $it ]" }) {
+                None -> return lastFoundPrefix.printO(DEBUG) { "No prefix exists for [ $prefix ] returning the last prefix [ $it ]\n" }
+                is Prefix -> lastFoundPrefix = nextResult.printO(DEBUG) { "model.Prefix found. Storing [ $it ] as last prefix, continue lookup" }
             }
             continue
         }
-        return lastFoundPrefix.also { "returning last found prefix: [ $it ]\n".print() }
+        return lastFoundPrefix.printO(DEBUG) { "Run out of lookup length, returning last prefix [ $it ]\n" }
     }
 
-    fun encode(triplets: List<Triplet>): ByteArray {
+    private fun encode(triplets: List<Triplet>): ByteArray {
+        print(DEBUG) { "Encoding triplets on 4 bytes. 11 bits for offset, 11 bits for length as unsigned integers, and 8 bits for the next character." }
         val tripletsAsByteArray = ByteArray(triplets.size * 4)
         triplets.forEachIndexed { tripletIndex, triplet ->
             triplet.toByteArray().forEachIndexed { dataIndex, data ->
@@ -161,7 +152,7 @@ class Application(
         return tripletsAsByteArray
     }
 
-    fun decode(filePath: FilePathOption): List<Triplet> {
+    private fun decode(filePath: FilePathOption): List<Triplet> {
         val encodedData = FileAccess.readFromFile(filePath)
         return encodedData.toList().chunked(4).map { chunk ->
             ByteArray(4).apply {
@@ -170,25 +161,49 @@ class Application(
         }.map { Triplet(it) }
     }
 
-    fun decompress(filePath: FilePathOption) {
-        val triplets = decode(filePath)
-        val text = decompress(triplets)
+    private fun decompress(filePath: FilePathOption) {
+        when(filePath) {
+            NotProvided -> "No filepath provided. Decompressing output_file_en.lz\n".print(INFO)
+            is Provided -> "Decompressing ${filePath.path}\n".print(INFO)
+        }
+        val triplets = decode(filePath).printO(DEBUG) { "Decoded [ ${it.size} ] triplets" }
+        val text = decompress(triplets).print(DEBUG) { "Reconstructed text from triplets" }
         FileAccess.writeToFile(text).print(INFO) { "Created file: $it" }
     }
 
     fun decompress(triplets: List<Triplet>): String {
         val buffer = StringBuffer()
-        triplets.forEach triplet@{
-            if (it.offset == 0) {
-                buffer.append(it.nextCharacter)
+        print(DEBUG) { "Reconstructing triplets\n" }
+        triplets.forEach triplet@{ triplet ->
+            printO(DEBUG) { "model.Triplet [ $triplet ]" }
+            if (triplet.offset == 0) {
+                print(DEBUG) { "model.Triplet has a zero offset, adding it as a single character\n" }
+                buffer.append(triplet.nextCharacter)
                 return@triplet
             }
             buffer.apply {
-                val startIndex = this.length - it.offset
-                append(substring(startIndex, startIndex + it.length))
-                append(it.nextCharacter)
+                print(DEBUG) { "model.Triplet has an offset. Copying segment." }
+                val startIndex = (this.length - triplet.offset)
+                substring(startIndex, startIndex + triplet.length)
+                    .print { "Getting substring between [ $startIndex ] - [ ${startIndex + triplet.length} ]" }
+                    .print(DEBUG) { "Segment [ $it ]"}
+                    .print(DEBUG) { "Adding next character [ ${triplet.nextCharacter} ] to the end" }
+                    .let { it + triplet.nextCharacter }
+                    .print { "The result concatenated [ $it ]" }
+                    .print(DEBUG) { "Appending result to the buffer\n" }
+                    .also { append(it) }
             }
         }
-        return buffer.toString()
+        return buffer.toString().print { "The decompressed text [ $it ]\n" }
+    }
+
+    companion object {
+        private fun String.splitAtIndex(index: Int) = when {
+            index < 0 -> 0
+            index > length -> length
+            else -> index
+        }.let {
+            take(it) to substring(it)
+        }
     }
 }

@@ -3,25 +3,33 @@ package config
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.InvalidArgumentException
 import com.xenomachina.argparser.default
-import util.LogLevel.INFO
-import util.LogLevel.TRACE
-import util.print
-import util.rootLogLevel
+import logging.LogLevel
+import logging.LogLevel.*
+import logging.print
 
 enum class Mode {
     COMPRESS,
     DECOMPRESS
 }
 
+enum class Verbosity {
+    TRACE,
+    VERBOSE,
+    INFO,
+    NONE
+}
+
 sealed class FilePathOption
 class Provided(val path: String) : FilePathOption()
-object NotProvided: FilePathOption()
+object NotProvided : FilePathOption()
 
 class ConsoleArgument(parser: ArgParser) {
-    val verbose by parser.flagging(
-        "-v", "--verbose",
-        help = "enable verbose mode"
-    )
+    val verbosity by parser.mapping(
+        "-t" to Verbosity.TRACE,
+        "-v" to Verbosity.VERBOSE,
+        "-n" to Verbosity.NONE,
+        help = "Modifies logging verbosity: -n turns off logging, -v for VERBOSE (provides additional logging), -t for TRACE (most detailed level, not recommended for big files). When no flag is provided, the default INFO level is active."
+    ).default { Verbosity.INFO }
 
     val filePath by parser.storing(
         "-f", "--file",
@@ -31,7 +39,7 @@ class ConsoleArgument(parser: ArgParser) {
     val mode by parser.mapping(
         "-c" to Mode.COMPRESS,
         "-d" to Mode.DECOMPRESS,
-        help = "Mode of operation. -c for compression, -d for decompression"
+        help = "Mode of operation: -c for compression, -d for decompression"
     )
 
     val windowSize by parser.storing(
@@ -43,18 +51,23 @@ class ConsoleArgument(parser: ArgParser) {
             if (value < 5 || value > 2000) throw InvalidArgumentException("Window size must be between 5 and 2000")
         }
 
-    fun parseFilePath() : FilePathOption {
-        return if(filePath.isNullOrBlank()) NotProvided else Provided(filePath!!)
+    fun parseFilePath(): FilePathOption {
+        return if (filePath.isNullOrBlank()) NotProvided else Provided(filePath!!)
+    }
+
+    fun parseVerbosity(): LogLevel {
+        return when (verbosity) {
+            Verbosity.TRACE -> TRACE
+            Verbosity.VERBOSE -> DEBUG
+            Verbosity.INFO -> INFO
+            Verbosity.NONE -> NONE
+        }
     }
 
     fun printArguments() {
-        if (verbose) {
-            rootLogLevel = TRACE
-            filePath.print(INFO) { "File path is $it" }
-            verbose.print(INFO) { "Verbose is ${if (verbose) "on" else "off"}" }
-            mode.print(INFO) { "Mode is $it" }
-            windowSize.print(INFO) { "Window size is $it" }
-            val path = parseFilePath()
-        }
+        filePath.print(DEBUG) { "File path is $it" }
+        verbosity.print(DEBUG) { "Verbosity is $verbosity" }
+        mode.print(DEBUG) { "Mode is $it" }
+        windowSize.print(DEBUG) { "Window size is $it" }
     }
 }

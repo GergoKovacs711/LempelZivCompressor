@@ -38,25 +38,29 @@ object FileAccess {
         }
     }
 
+    private fun String.randomEnd(suffix: String) : String {
+        return this + "-" + randomTimestamp() + "." + suffix
+    }
+
     private const val compressionFile = "input_file_en.txt"
-    private const val decompressionFile = "compressed_file_en.lz"
+    private const val decompressionFile = "output_file_en.lz"
 
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
 
     fun writeToFile(bytes: ByteArray, filePath: FilePathOption  = NotProvided): String {
-        when (filePath) {
-            NotProvided -> File(compressionFile.output())
+        val file = when (filePath) {
+            NotProvided -> File("compression-test".randomEnd("lz").output())
             is Provided -> File(filePath.path.output())
-        }.writeBytes(bytes)
-        return "" // TODO: fix for tests
+        }.also { it.writeBytes(bytes) }
+        return file.name
     }
 
     fun writeToFile(data: String, filePath: FilePathOption = NotProvided): String {
-        when (filePath) {
-            NotProvided -> File(decompressionFile.output())
+        val file = when (filePath) {
+            NotProvided -> File("decompression-test".randomEnd("txt").output())
             is Provided -> File(filePath.path.output())
-        }.writeText(data)
-        return "" // TODO: fix for tests
+        }.also { it.writeText(data) }
+        return file.name
     }
 
     fun readFromFile(filePath: FilePathOption): ByteArray {
@@ -75,8 +79,12 @@ object FileAccess {
 
 
     fun randomTimestampedFileName(fileSuffix: String): String {
+        return "test-file" + randomTimestamp() + fileSuffix
+    }
+
+    private fun randomTimestamp(): String {
         var randomEnding = ""
         repeat(10) { randomEnding += Random.nextInt(10).toString() }
-        return "test-file" + formatter.format(LocalDateTime.now()) + randomEnding + "." + fileSuffix
+        return formatter.format(LocalDateTime.now()) + randomEnding
     }
 }

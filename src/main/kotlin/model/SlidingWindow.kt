@@ -1,22 +1,24 @@
+package model
+
 sealed class PrefixSearchResult {
     override fun toString(): String {
         return when(this) {
-            is PrefixFound -> this.toString()
+            is Prefix -> this.toString()
             is None -> "None"
         }
     }
 }
-data class PrefixFound(val index: Int, val prefix: String) : PrefixSearchResult()
+data class Prefix(val index: Int, val prefix: String) : PrefixSearchResult()
 object None : PrefixSearchResult()
 
 class SlidingWindow(val maxSize: Int, private val window: ArrayDeque<Char> = ArrayDeque(maxSize)) {
     fun find(sequenceToLookUp: String): PrefixSearchResult {
         val windowString = windowAsString()
-        return when (windowString.contains(sequenceToLookUp)) {
+        return when (sequenceToLookUp in windowString) {
             false -> None
             true -> {
                 val index = windowString.indexOf(sequenceToLookUp)
-                PrefixFound(index, sequenceToLookUp)
+                Prefix(index, sequenceToLookUp)
             }
         }
     }

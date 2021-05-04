@@ -3,7 +3,11 @@ import config.NotProvided
 import file.FileAccess
 import file.writeToRandomOutPutFile
 import org.junit.jupiter.api.Test
-import util.LogLevel
+import logging.LogLevel
+import model.None
+import model.Prefix
+import model.SlidingWindow
+import model.Triplet
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -66,7 +70,7 @@ class SlidingWindowTest {
         val result = window.find("t")
 
         // then
-        assertTrue(result is PrefixFound)
+        assertTrue(result is Prefix)
         assertEquals(9, result.index)
         assertEquals("t", result.prefix)
     }
@@ -80,7 +84,7 @@ class SlidingWindowTest {
         val result = window.find("aba")
 
         // then
-        assertTrue(result is PrefixFound)
+        assertTrue(result is Prefix)
         assertEquals(0, result.index)
         assertEquals("aba", result.prefix)
     }
@@ -94,7 +98,7 @@ class SlidingWindowTest {
         val result = window.find("cab")
 
         // then
-        assertTrue(result is PrefixFound)
+        assertTrue(result is Prefix)
         assertEquals(result.index, 4)
         assertEquals(result.prefix, "cab")
     }
@@ -160,8 +164,8 @@ class SlidingWindowTest {
             for (index in runs.toRange()) {
                 val lookUpWindow = SlidingWindow(2000)
                 val inputText = inputSize.toRange()
-                    .map { _ -> Random.nextInt(1, charPool.size) }
-                    .map { i -> charPool[i] }
+                    .map { Random.nextInt(1, charPool.size) }
+                    .map { charPool[it] }
                     .joinToString("")
                     .also { inputs.add(it) }
 
@@ -188,9 +192,9 @@ class SlidingWindowTest {
             "Egy szöveg ábrázolásához szükség van írásra is, amely eszköztárával (pl. betűkkel) fonémákat, szótagokat, ill. szavakat és fogalmakat kódol. Különböző kultúrák és korok erre a célra különböző jelrendszert használnak. A szöveg egyik legfontosabb és megkerülhetetlen (immanens) tulajdonsága, amelyet mind az író mind az olvasó kénytelen követni (ha a szöveget olvasni akarja) a linearitás.Az írott szöveg az emberiség történelmében hatalmas előrelépés, hiszen így a történelme folyamán egyedüli módon lehetővé vált az információ személytől térben és időben független tárolása szemben a szájhagyománnyal, amely mind térben mind időben adott személyhez vagy személyekhez kötött. A történelemről ránk maradt információk legnagyobb része a XX. századig írásos szövegemlékekből áll. Azok a szövegek, amelyek olyan kultúráktól származnak, ahol az írásos információrögzítés létezik, a szövegek felépítése alapvetően különbözik az olyan kultúrák szövegeitől, ahol információk csak szájhagyomány útján maradtak fenn. A társadalomtudományokban a szöveges hagyomány nélküli kultúrákat nagyrészt az ókori ill. történelme előtti kultúrákhoz sorolják. Így a társadalomtudományban létezik a kultúrának egy olyan fontos meghatározása, amelynek alapjául közvetetten bár de a szöveg szolgál."
 
         // when
-        var lookUpWindow = SlidingWindow(50)
+        val lookUpWindow = SlidingWindow(50)
         val triplets = app.compress(hungarianText, lookUpWindow)
-        var decompressedText = app.decompress(triplets)
+        val decompressedText = app.decompress(triplets)
 
         // then
         assertEquals(hungarianText, decompressedText)
