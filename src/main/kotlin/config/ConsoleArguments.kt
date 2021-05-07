@@ -33,7 +33,7 @@ class ConsoleArgument(parser: ArgParser) {
 
     val filePath by parser.storing(
         "-f", "--file",
-        help = "Path of the input file"
+        help = "Path of the input file. When no file is provided. The default test files are used to generated the output file."
     ).default<String?>(null)
 
     val mode by parser.mapping(

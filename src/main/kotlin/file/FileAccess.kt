@@ -42,7 +42,7 @@ object FileAccess {
         return this + "-" + randomTimestamp() + "." + suffix
     }
 
-    private const val compressionFile = "input_file_en.txt"
+    private const val compressionFile = "input_file_en_medium.txt"
     private const val decompressionFile = "output_file_en.lz"
 
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
